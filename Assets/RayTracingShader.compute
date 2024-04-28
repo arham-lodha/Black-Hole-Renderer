@@ -3,7 +3,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-static const float DIST_EPSILON = 0.1f;
+static const float DIST_EPSILON = 0.001f;
 static const uint MAX_ITERATIONS = 100;
 static const float MAX_DIST = 200.0f;
 
@@ -95,7 +95,7 @@ int blackHoleIntersect(Ray ray){
                 
                 if(abs(dist) < DIST_EPSILON){
                     // return createIsect(true, false, time, ray.position, normal, boxes[j].material);
-                    return 1;
+                    return 3;
                 }
                 else if(dist < 0.0){
                     shortenDT = true;
@@ -114,46 +114,43 @@ int blackHoleIntersect(Ray ray){
     return 2;
 }
 
-int intersect(float3 position, float3 direction) {
+int intersect(Ray ray) {
     float time = 0.0;
     float steps = 0.0;
     while(time < MAX_DIST){
         float dist = MAX_DIST;
-        // for(int j = 1; j < numSpheres + 1; j++) {
-        //     float sphere_dist = sphereSDF(position, spheres[j].position, spheres[j].radius);
+        for(int j = 1; j < numSpheres + 1; j++) {
+            float sphere_dist = sphereSDF(ray.position, spheres[j].position, spheres[j].radius);
 
-        //     if(sphere_dist <= DIST_EPSILON){
-        //         // return createIsect(true, false, time, position, direction, getSphereNormal(position, spheres[j].position, spheres[j].radius), spheres[j].material);
+            if(sphere_dist <= DIST_EPSILON){
+                // return createIsect(true, false, time, position, direction, getSphereNormal(position, spheres[j].position, spheres[j].radius), spheres[j].material);
 
-        //         return 0;
-        //     }
+                return 1;
+            }
 
-        //     dist = min(dist, sphere_dist);
-        // }
+            dist = min(dist, sphere_dist);
+        }
 
         for(int j = 1; j < numBoxes + 1; j++) {
-            float box_dist = boxSDF(position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
+            float box_dist = boxSDF(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
 
             if(box_dist <= DIST_EPSILON){
                 // return createIsect(true, false, time, position, direction, getBoxNormal(position, boxes[j].position, boxes[j].corner, boxes[j].rotation), boxes[j].material);
-                return 0;
+                return 2;
             }
 
             dist = min(dist, box_dist);
         }
 
-        if(dist == MAX_DIST){
-            return 2;
-        }
 
-        position = position + dist * direction;
+        ray.position = ray.position + dist * ray.direction;
         time += dist;
         steps += 1.0;
     }
 
 
     // return createIsect(false, false, time, position, direction, float3(0.0, 0.0, 0.0), DUMMY_MATERIAL);
-    return 1;
+    return 0;
 }
 
 // PCG (permuted congruential generator). Thanks to:
@@ -246,7 +243,7 @@ float3 traceRay(Ray r, inout uint state) {
 
     for(int i = 0; i < maxDepth; i++) {
         // Isect hit;
-        int hit = intersect(position, direction);
+        int hit = intersect(r);
         // if(hasBlackHole) {
         //     hit = blackHoleIntersect(r);
         // } 
@@ -259,12 +256,16 @@ float3 traceRay(Ray r, inout uint state) {
         if(hit == 0){
             return float3(1.0, 0.0, 0.0);
         }
-        if(hit == 2){
+        if(hit == 1){
             return float3(0.0, 1.0, 0.0);
         }
-        else{
-            return float3(0.0, 0.0, 0.0);
+        if(hit == 2){
+            return float3(0.0, 0.0, 1.0);
         }
+        if(hit == 3){
+            return float3(1.0, 1.0, 0.0);
+        }
+
 
         // float3 direction = hit.intersectionDirection;
 
