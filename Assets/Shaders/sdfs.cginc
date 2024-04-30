@@ -8,8 +8,8 @@ struct Material {
 };
 
 struct Isect {
-    bool didHit;
-    bool hitBlackhole;
+    int didHit;
+    int hitBlackhole;
     float time;
     float3 intersectionPoint;
     float3 intersectionDirection;
@@ -26,8 +26,8 @@ struct Sphere {
 struct Box {
     float3 position;
     float3 corner;
-    Material material;
     float4 rotation;
+    Material material;
 };
 
 float3 qtrans(float4 q, float3 v) {

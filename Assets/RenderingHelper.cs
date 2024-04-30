@@ -51,6 +51,7 @@ public class RenderingHelper : MonoBehaviour
         }
     }
 
+
     private void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
         Graphics.Blit(renderTexture, dest);
@@ -84,9 +85,9 @@ public class RenderingHelper : MonoBehaviour
                 color = new Color(0.0f, 0.0f, 0.0f),
                 emissionColor = new Color(0.0f, 0.0f, 0.0f),
                 specularColor = Color.black,
-                roughness = 0.0f,
                 specularProbability = 0.0f,
                 emissionStrength = 0.0f,
+                roughness = 0.0f,
             }
         };
 
@@ -150,16 +151,16 @@ public class RenderingHelper : MonoBehaviour
         {
             position = new Vector3(0.0f, 0.0f, 0.0f),
             corner = new Vector3(0.0f, 0.0f, 0.0f),
+            rotation = new Vector4(0.0f, 0.0f, 0.0f, 0.0f),
             material = new RaytracingMaterial()
             {
                 color = new Color(0.0f, 0.0f, 0.0f),
                 emissionColor = new Color(0.0f, 0.0f, 0.0f),
                 specularColor = Color.black,
-                roughness = 0.0f,
                 specularProbability = 0.0f,
                 emissionStrength = 0.0f,
+                roughness = 0.0f,
             },
-            rotation = new Vector4(0.0f, 0.0f, 0.0f, 0.0f)
         };
 
         for (int i = 1; i < boxes.Length; i++)
@@ -167,9 +168,15 @@ public class RenderingHelper : MonoBehaviour
             boxes[i] = new Box()
             {
                 position = boxObjects[i - 1].transform.position,
-                corner = new Vector3(boxObjects[i - 1].transform.localScale.x * 0.5f, boxObjects[i - 1].transform.localScale.y * 0.5f, boxObjects[i - 1].transform.localScale.z * 0.5f),
+                corner = new Vector3(boxObjects[i - 1].transform.localScale.x * 0.5f,
+                boxObjects[i - 1].transform.localScale.y * 0.5f,
+                boxObjects[i - 1].transform.localScale.z * 0.5f),
+                rotation = new Vector4(
+                    boxObjects[i - 1].transform.rotation.x,
+                    boxObjects[i - 1].transform.rotation.y,
+                    boxObjects[i - 1].transform.rotation.z,
+                    boxObjects[i - 1].transform.rotation.w),
                 material = boxObjects[i - 1].material,
-                rotation = new Vector4(boxObjects[i - 1].transform.rotation.x, boxObjects[i - 1].transform.rotation.y, boxObjects[i - 1].transform.rotation.z, boxObjects[i - 1].transform.rotation.w)
             };
         }
 
