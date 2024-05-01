@@ -1,11 +1,14 @@
 #include "sdfs.cginc"
 #include "blackhole.cginc"
+#include "noise.cginc"
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
 static const float DIST_EPSILON = 0.01f;
 static const uint MAX_ITERATIONS = 300;
 static const float MAX_DIST = 200.0f;
+static const float PI = 3.14159265f;
+
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -51,12 +54,25 @@ bool checkAccretionIntersect(float3 oldPos, float3 newPos) {
     return avg > rs * 1.5 && avg < rs * max(diskMax, 3.0);    
 }
 
+float4 getDiskColor(float3 position, float3 lastPosition){
+    float avg_r = 0.5 * (length(position) + length(lastPosition)); 
+    float rs = 2.0 * mass;
+    float theta = atan2(position.z , position.x);
+    float3 uv = float3(theta / (2 * PI),  (avg_r - rs * 1.5) / (diskMax * rs - rs * 1.5), 0.0);
+    float alpha = FBM(4, 5, uv, 1, 2024.0);
+
+
+    return float4(1.0, 1.0, 1.0, 0.1 * (avg_r - rs * 1.5) / (diskMax * rs - rs * 1.5) * alpha);
+}
+
 Isect blackHoleIntersect(inout Ray ray){
     float time = 0.0;
     float dt = 1.0;
     int numSteps = 3;
     float rs = 2.0 * mass;
     float3 bPos = float3(0.0, 0.0, 0.0);
+    
+    float4 color = float4(0.0, 0.0, 0.0, 0.0);
     
     for(uint i = 0; i < MAX_ITERATIONS; i++) {
         float3 x = float3(ray.position.xyz);
@@ -67,12 +83,12 @@ Isect blackHoleIntersect(inout Ray ray){
         bool shortenDT = false;
         
         if(sphereSDF(ray.position, bPos, rs) < DIST_EPSILON){
-            return createIsect(true, true, false, float4(0.0, 0.0, 0.0, 1.0), 0.0);
-             // return 0;
+            color = lerp(color, float4(0.0, 0.0, 0.0, 1.0), 1 - color.w);
+            return createIsect(true, true, false, color, 0.0);
         }
 
         if(checkAccretionIntersect(x, ray.position)){
-            return createIsect(true, false, true, float4(1.0, 1.0, 1.0, 1.0), 1.0);
+            color = lerp(color, getDiskColor(ray.position, x), 1 - color.w);
         }
 
         for(int j = 1; j < numSpheres + 1; j++){
@@ -81,7 +97,8 @@ Isect blackHoleIntersect(inout Ray ray){
             
             // if(abs(dot(x - ray.position, normal)) > DIST_EPSILON){
             if(dist < DIST_EPSILON){
-                return createIsect(true, false, false, spheres[j].emissionColor, spheres[j].emissionStrength);
+                color = lerp(color, spheres[j].emissionColor, 1 - color.w);
+                return createIsect(true, false, false, color, spheres[j].emissionStrength);
                 // return 1;
             }
             else if(dist < 0.0){
@@ -94,7 +111,8 @@ Isect blackHoleIntersect(inout Ray ray){
             float dist = boxSDF(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
                 
             if(dist < DIST_EPSILON){
-                return createIsect(true, false, false, boxes[j].emissionColor, boxes[j].emissionStrength);
+                color = lerp(color, boxes[j].emissionColor, color.w);
+                return createIsect(true, false, false, color, boxes[j].emissionStrength);
                 // return 2;
             }
             else if(dist < 0.0){
@@ -109,7 +127,8 @@ Isect blackHoleIntersect(inout Ray ray){
         }
     }
 
-    return createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
+    color = lerp(color, _skybox.SampleLevel(sampler_skybox, ray.direction, 0), 1 - color.w);
+    return createIsect(false, false, false, color, 0.0);
     // return 3;
 }
 
@@ -149,31 +168,6 @@ Isect intersect(Ray ray) {
     return createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
 }
 
-// PCG (permuted congruential generator). Thanks to:
-// www.pcg-random.org and www.shadertoy.com/view/XlGcRh
-float NextRandom(inout uint state)
-{
-    state = state * 747796405 + 2891336453;
-    uint result = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
-    result = (result >> 22) ^ result;
-    return result;
-}
-
-float RandomValue(inout uint state){
-    return NextRandom(state) / 4294967295.0 * 2.0 - 1.0; // 2^32 - 1;
-}
-
-float2 RandomValueInCircle(inout uint state) 
-{
-    while(true){
-        float2 pt = float2(RandomValue(state), RandomValue(state));
-        if(length(pt) <= 1) {
-            return pt;
-        }
-    }
-
-    return float2(0.0, 0.0);
-}
 
 Ray createRay(float3 origin, float3 direction) {
     Ray ray;
@@ -193,14 +187,12 @@ Ray cameraRay(float2 uv, float defocus, float2 jitter, inout uint state) {
     return createRay(origin, normalize(dir.xyz - origin));
 }
 
-
-float3 traceRay(Ray r, inout uint state) {
-    float3 pixelLight = float3(0.0, 0.0, 0.0);
-
+float4 traceRay(Ray r, inout uint state) {
     Isect hit = createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
 
     if(hasBlackHole){
         hit = blackHoleIntersect(r);
+        return hit.emissionColor;
     }
     else{
         hit = intersect(r);
@@ -208,19 +200,16 @@ float3 traceRay(Ray r, inout uint state) {
     
     if(hit.didHit){
         if(hit.hitBlackhole){
-            return float3(0.0, 0.0, 0.0);
+            return float4(0.0, 0.0, 0.0, 1.0);
         }
 
         // return float3(1.0, 0.0, 1.0);
 
         float3 emittedColor = hit.emissionColor.xyz * hit.emissionStrength;
-        return hit.emissionColor.xyz * hit.emissionStrength;
+        return float4(emittedColor.xyz, hit.emissionColor.w);
     }
-    else{
-        return _skybox.SampleLevel(sampler_skybox, r.direction, 0);
-    }
-
-    return pixelLight;
+    
+    return _skybox.SampleLevel(sampler_skybox, r.direction, 0);
 }
 
 [numthreads(8,8,1)]
@@ -233,7 +222,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float2 uv = id.xy / float2(width, height) * 2 - 1.0;
 
     int n = 50;
-    float3 col = float3(0.0f, 0.0f, 0.0f);
+    float4 col = float4(0.0f, 0.0f, 0.0f, 0.0f);
     uint seed = id.x + id.y * width;
 
     for(int i = 0; i < n; i++) {
@@ -242,7 +231,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     
     col /= n;
 
-    Result[id.xy] = float4(col.x, col.y, col.z, 1.0);
+    Result[id.xy] = col;
 
     // Ray r = {
     //     float3(0.0, 0.0, 0.0),
