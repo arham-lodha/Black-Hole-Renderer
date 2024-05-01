@@ -10,5 +10,8 @@ public struct Box
 
     //total = 10
 
-    public RaytracingMaterial material;
+    public Color emissionColor;
+    public float emissionStrength;
+
+    // public RaytracingMaterial material;
 }

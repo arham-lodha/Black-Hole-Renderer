@@ -1,6 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Runtime.InteropServices;
+using TMPro;
 using UnityEngine;
 
 public class RenderingHelper : MonoBehaviour
@@ -14,9 +17,13 @@ public class RenderingHelper : MonoBehaviour
     ComputeBuffer sphereBuffer;
     ComputeBuffer blackholeBuffer;
     ComputeBuffer boxBuffer;
+
+    [SerializeField] public float mass = 1.0f;
     [SerializeField] private int maxDepth = 5;
     [SerializeField] private float focusDistance = 10.0f;
     [SerializeField] private float defocusStrength = 0.0f;
+    [SerializeField] public bool hasBlackHole = true;
+    [SerializeField] private float diskMax = 3.0f;
 
     void Start()
     {
@@ -28,7 +35,6 @@ public class RenderingHelper : MonoBehaviour
         computeShader.Dispatch(0, Mathf.CeilToInt(renderTexture.width / 8.0f), Mathf.CeilToInt(renderTexture.height / 8.0f), 1);
 
         sphereBuffer.Dispose();
-        blackholeBuffer.Dispose();
         boxBuffer.Dispose();
     }
 
@@ -64,10 +70,12 @@ public class RenderingHelper : MonoBehaviour
         computeShader.SetInt("maxDepth", maxDepth);
         computeShader.SetFloat("focusDistance", focusDistance);
         computeShader.SetFloat("defocusStrength", defocusStrength);
+        computeShader.SetFloat("mass", mass);
+        computeShader.SetFloat("diskMax", diskMax);
+        computeShader.SetBool("hasBlackHole", hasBlackHole);
         computeShader.SetTexture(0, "_skybox", cubemap);
 
         createSpheres();
-        createBlackHoles();
         createBoxes();
     }
 
@@ -80,15 +88,8 @@ public class RenderingHelper : MonoBehaviour
         {
             position = new Vector3(0.0f, 0.0f, 0.0f),
             radius = 0.0f,
-            material = new RaytracingMaterial()
-            {
-                color = new Color(0.0f, 0.0f, 0.0f),
-                emissionColor = new Color(0.0f, 0.0f, 0.0f),
-                specularColor = Color.black,
-                specularProbability = 0.0f,
-                emissionStrength = 0.0f,
-                roughness = 0.0f,
-            }
+            emissionColor = new Vector4(0.0f, 0.0f, 0.0f, 0.0f),
+            emissionStrength = 0.0f,
         };
 
         for (int i = 1; i < spheres.Length; i++)
@@ -97,49 +98,19 @@ public class RenderingHelper : MonoBehaviour
             {
                 position = sphereObjects[i - 1].transform.position,
                 radius = sphereObjects[i - 1].transform.localScale.x * 0.5f,
-                material = sphereObjects[i - 1].material,
+                emissionColor = sphereObjects[i - 1].material.emissionColor,
+                emissionStrength = sphereObjects[i - 1].material.emissionStrength,
             };
         }
 
-        sphereBuffer = new ComputeBuffer(spheres.Length, sizeof(float) * 19);
+        Debug.Log(sphereObjects.Length);
+
+
+        sphereBuffer = new ComputeBuffer(spheres.Length, sizeof(float) * 9);
         sphereBuffer.SetData(spheres);
         computeShader.SetBuffer(0, "spheres", sphereBuffer);
 
         computeShader.SetInt("numSpheres", sphereObjects.Length);
-    }
-
-    void createBlackHoles()
-    {
-        RaytracingBlackHole[] blackholeObjects = FindObjectsOfType<RaytracingBlackHole>();
-        BlackHole[] blackholes = new BlackHole[blackholeObjects.Length + 1];
-
-        blackholes[0] = new BlackHole()
-        {
-            sRadius = 0.0f,
-            position = new Vector3(0.0f, 0.0f, 0.0f)
-        };
-
-        for (int i = 1; i < blackholes.Length; i++)
-        {
-            blackholes[i] = new BlackHole()
-            {
-                sRadius = blackholeObjects[i - 1].mass * 2,
-                position = blackholeObjects[i - 1].transform.position
-            };
-        }
-
-        blackholeBuffer = new ComputeBuffer(blackholes.Length, sizeof(float) * 4);
-        blackholeBuffer.SetData(blackholes);
-        computeShader.SetBuffer(0, "blackholes", blackholeBuffer);
-
-        if (blackholeObjects.Length > 0)
-        {
-            computeShader.SetBool("hasBlackHole", true);
-        }
-        else
-        {
-            computeShader.SetBool("hasBlackHole", false);
-        }
     }
 
     void createBoxes()
@@ -152,15 +123,8 @@ public class RenderingHelper : MonoBehaviour
             position = new Vector3(0.0f, 0.0f, 0.0f),
             corner = new Vector3(0.0f, 0.0f, 0.0f),
             rotation = new Vector4(0.0f, 0.0f, 0.0f, 0.0f),
-            material = new RaytracingMaterial()
-            {
-                color = new Color(0.0f, 0.0f, 0.0f),
-                emissionColor = new Color(0.0f, 0.0f, 0.0f),
-                specularColor = Color.black,
-                specularProbability = 0.0f,
-                emissionStrength = 0.0f,
-                roughness = 0.0f,
-            },
+            emissionColor = new Vector4(0.0f, 0.0f, 0.0f, 0.0f),
+            emissionStrength = 0.0f,
         };
 
         for (int i = 1; i < boxes.Length; i++)
@@ -176,11 +140,12 @@ public class RenderingHelper : MonoBehaviour
                     boxObjects[i - 1].transform.rotation.y,
                     boxObjects[i - 1].transform.rotation.z,
                     boxObjects[i - 1].transform.rotation.w),
-                material = boxObjects[i - 1].material,
+                emissionColor = boxObjects[i - 1].material.emissionColor,
+                emissionStrength = boxObjects[i - 1].material.emissionStrength,
             };
         }
 
-        boxBuffer = new ComputeBuffer(boxes.Length, sizeof(float) * 25);
+        boxBuffer = new ComputeBuffer(boxes.Length, sizeof(float) * 15);
         boxBuffer.SetData(boxes);
         computeShader.SetBuffer(0, "boxes", boxBuffer);
 
@@ -192,11 +157,6 @@ public class RenderingHelper : MonoBehaviour
         if (sphereBuffer != null)
         {
             sphereBuffer.Dispose();
-        }
-
-        if (blackholeBuffer != null)
-        {
-            blackholeBuffer.Dispose();
         }
 
         if (boxBuffer != null)

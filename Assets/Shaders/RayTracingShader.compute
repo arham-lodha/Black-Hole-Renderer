@@ -4,20 +4,11 @@
 #pragma kernel CSMain
 
 static const float DIST_EPSILON = 0.01f;
-static const uint MAX_ITERATIONS = 100;
+static const uint MAX_ITERATIONS = 300;
 static const float MAX_DIST = 200.0f;
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-
-static const Material DUMMY_MATERIAL = {
-    float4(0.0f, 0.0f, 0.0f, 0.0f),
-    float4(0.0f, 0.0f, 0.0f, 0.0f),
-    float4(0.0f, 0.0f, 0.0f, 0.0f),
-    0.0f,
-    0.0f,
-    0.0f
-};
 
 RWTexture2D<float4> Result;
 
@@ -25,7 +16,6 @@ TextureCube _skybox;
 SamplerState sampler_skybox;
 
 StructuredBuffer<Sphere> spheres;
-StructuredBuffer<BlackHole> blackholes;
 StructuredBuffer<Box> boxes;
 
 bool hasBlackHole;
@@ -36,47 +26,62 @@ float defocusStrength;
 float focusDistance;
 float4x4 inverseProjectionMatrix;
 float4x4 cameraToWorldMatrix;
+float mass;
+float diskMax;
 
-Isect createIsect(bool hit, bool hitBlackhole, float time, float3 intersectionPoint, float3 intersectionDirection, float3 normal, Material material){
+Isect createIsect(bool hit, bool hitBlackhole, bool hitAccretionDisk, float4 emissionColor, float emissionStrength){
     Isect isect;
     isect.didHit = hit;
     isect.hitBlackhole = hitBlackhole;
-    isect.time = time;
-    isect.intersectionPoint = intersectionPoint;
-    isect.intersectionDirection = intersectionDirection;
-    isect.normal = normal;
-    isect.material = material;
+    isect.hitAccretionDisk = hitAccretionDisk;
+    isect.emissionColor = emissionColor;
+    isect.emissionStrength = emissionStrength;
 
     return isect;
+}
+
+bool checkAccretionIntersect(float3 oldPos, float3 newPos) {
+    if(newPos.y * oldPos.y > 0.0) {
+        return false;
+    }
+
+    float avg = 0.5 * (length(newPos) + length(oldPos));
+    float rs = 2.0 * mass;
+
+    return avg > rs * 1.5 && avg < rs * max(diskMax, 3.0);    
 }
 
 Isect blackHoleIntersect(inout Ray ray){
     float time = 0.0;
     float dt = 1.0;
-    int numSteps = 4;
+    int numSteps = 3;
+    float rs = 2.0 * mass;
+    float3 bPos = float3(0.0, 0.0, 0.0);
     
     for(uint i = 0; i < MAX_ITERATIONS; i++) {
-        float3 x = float3(ray.position.x, ray.position.y, ray.position.z);
+        float3 x = float3(ray.position.xyz);
         float3 oldDir = float3(ray.direction.x, ray.direction.y, ray.direction.z);
 
-        rungeKuttaIntegration(blackholes[1].sRadius / 2.0, dt, numSteps, ray);
+        rungeKuttaIntegration(mass * 2.0, dt, numSteps, ray);
         
         bool shortenDT = false;
         
-        float3 blackHoleNormal = getSphereNormal(ray.position, blackholes[1].position, blackholes[1].sRadius);
-        
-        if(sphereSDF(ray.position, blackholes[1].position, blackholes[1].sRadius) < DIST_EPSILON){
-            return createIsect(true, true, time, ray.position, ray.direction, blackHoleNormal, DUMMY_MATERIAL);
+        if(sphereSDF(ray.position, bPos, rs) < DIST_EPSILON){
+            return createIsect(true, true, false, float4(0.0, 0.0, 0.0, 1.0), 0.0);
              // return 0;
         }
 
+        if(checkAccretionIntersect(x, ray.position)){
+            return createIsect(true, false, true, float4(1.0, 1.0, 1.0, 1.0), 1.0);
+        }
+
         for(int j = 1; j < numSpheres + 1; j++){
-            float3 normal = getSphereNormal(ray.position, spheres[j].position, spheres[j].radius);
+            // float3 normal = getSphereNormal(ray.position, spheres[j].position, spheres[j].radius);
             float dist = sphereSDF(ray.position, spheres[j].position, spheres[j].radius);
             
             // if(abs(dot(x - ray.position, normal)) > DIST_EPSILON){
             if(dist < DIST_EPSILON){
-                return createIsect(true, false, time, ray.position, ray.direction, normal, spheres[j].material);
+                return createIsect(true, false, false, spheres[j].emissionColor, spheres[j].emissionStrength);
                 // return 1;
             }
             else if(dist < 0.0){
@@ -85,11 +90,11 @@ Isect blackHoleIntersect(inout Ray ray){
         }
 
         for(int j = 1; j < numBoxes + 1; j++){
-            float3 normal = getBoxNormal(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
+            // float3 normal = getBoxNormal(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
             float dist = boxSDF(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
                 
             if(dist < DIST_EPSILON){
-                return createIsect(true, false, time, ray.position, ray.direction, normal, boxes[j].material);
+                return createIsect(true, false, false, boxes[j].emissionColor, boxes[j].emissionStrength);
                 // return 2;
             }
             else if(dist < 0.0){
@@ -104,9 +109,10 @@ Isect blackHoleIntersect(inout Ray ray){
         }
     }
 
-    return createIsect(false, false, time, ray.position, ray.direction, float3(0.0, 0.0, 0.0), DUMMY_MATERIAL);
+    return createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
     // return 3;
 }
+
 
 Isect intersect(Ray ray) {
     float time = 0.0;
@@ -117,7 +123,7 @@ Isect intersect(Ray ray) {
             float sphere_dist = sphereSDF(ray.position, spheres[j].position, spheres[j].radius);
 
             if(sphere_dist <= DIST_EPSILON){
-                return createIsect(true, false, time, ray.position, ray.direction, getSphereNormal(ray.position, spheres[j].position, spheres[j].radius), spheres[j].material);
+                return createIsect(true, false, false, spheres[j].emissionColor, spheres[j].emissionStrength);
                 // return 1;
             }
 
@@ -128,7 +134,7 @@ Isect intersect(Ray ray) {
             float box_dist = boxSDF(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
 
             if(box_dist <= DIST_EPSILON){
-                return createIsect(true, false, time, ray.position, ray.direction, getBoxNormal(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation), boxes[j].material);
+                return createIsect(true, false, false, boxes[j].emissionColor, boxes[j].emissionStrength);
                 // return 2;
             }
 
@@ -140,8 +146,7 @@ Isect intersect(Ray ray) {
         steps += 1.0;
     }
 
-    return createIsect(false, false, time, ray.position, ray.direction, float3(0.0, 0.0, 0.0), DUMMY_MATERIAL);
-    // return 0;
+    return createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
 }
 
 // PCG (permuted congruential generator). Thanks to:
@@ -185,104 +190,34 @@ Ray cameraRay(float2 uv, float defocus, float2 jitter, inout uint state) {
     float4 dir = mul(inverseProjectionMatrix, float4(uv, 0.0, 1.0));
     dir /= dir.w;
     dir = mul(cameraToWorldMatrix, dir);
-
-    // float d = abs(dir.z);
-    // float dp = length(dir.xyz);
-
-    // float3 focusPoint = dp / d * (d + focusDistance) * normalize(dir.xyz); 
-    // focusPoint = float3(focusPoint.x + jitterDir.x, focusPoint.y + jitterDir.y, focusPoint.z);
-    // focusPoint = mul(cameraToWorldMatrix, float4(focusPoint.x, focusPoint.y, focusPoint.z, 1.0)).xyz;
-
-    // origin = mul(cameraToWorldMatrix, float4(dir.x + , dir.y + , dir.z, 1.0)).xyz;
-
     return createRay(origin, normalize(dir.xyz - origin));
-    // return createRay(origin, normalize(focusPoint - origin));
 }
 
-float3 getRandomHemisphereVector(inout uint state, float3 normal) {
-    uint count = 0;
-    
-    while(true){
-        float3 vec = float3(
-            RandomValue(state),
-            RandomValue(state),
-            RandomValue(state)
-        );
-        
-        if(length(vec) <= 1){
-            float d = dot(normal, vec);
-            
-            if(d >= 0){
-                return normalize(vec);
-            } else {
-                return normalize(-vec);
-            }
-        }
-
-        count++;
-    }
-
-    return normal;
-}
 
 float3 traceRay(Ray r, inout uint state) {
     float3 pixelLight = float3(0.0, 0.0, 0.0);
-    float3 rayColor = float3(1.0, 1.0, 1.0);
 
-    for(int i = 0; i < maxDepth; i++){
-        Isect hit = createIsect(false, false, 0.0, r.position, r.direction, float3(0.0, 0.0, 0.0), DUMMY_MATERIAL);
+    Isect hit = createIsect(false, false, false, float4(0.0, 0.0, 0.0, 0.0), 0.0);
 
-        if(hasBlackHole){
-            hit = blackHoleIntersect(r);
+    if(hasBlackHole){
+        hit = blackHoleIntersect(r);
+    }
+    else{
+        hit = intersect(r);
+    }
+    
+    if(hit.didHit){
+        if(hit.hitBlackhole){
+            return float3(0.0, 0.0, 0.0);
         }
-        else{
-            hit = intersect(r);
-        }
-        
-        if(hit.didHit){
-            if(hit.hitBlackhole){
-                return float3(0.0, 0.0, 1.0);
-            }
 
-            return float3(1.0, 0.0, 0.0);
-                        
-            float3 emittedColor = hit.material.emissionColor.xyz * hit.material.emissionStrength;
-            
-            pixelLight += emittedColor.xyz * rayColor;
+        // return float3(1.0, 0.0, 1.0);
 
-            if(hit.material.emissionStrength > 0.8) {
-                return pixelLight;
-            }
-
-            // color *= false ? hit.material.specularColor.xyz : hit.material.color.xyz;
-            rayColor = rayColor *  hit.material.color.xyz;
-            float3 diffuseDirection = normalize(hit.normal + getRandomHemisphereVector(state, hit.normal)); // diffuse direction
-            // float3 specularDirection = normalize(reflect(r.direction, hit.normal));
-            // float weight = hit.material.roughness * hit.material.roughness;
-            // specularDirection = normalize(lerp(diffuseDirection, specularDirection, weight));
-            
-            // if(reflectSpecular) {
-            //     r.direction = specularDirection;
-            // }
-            // else {
-            //     r.direction = diffuseDirection;
-            // }
-
-            // r.direction = diffuseDirection;
-            // r.position = position;
-
-            r.direction = diffuseDirection;
-            r.position = hit.intersectionPoint + hit.normal * DIST_EPSILON;            
-        }
-        else{
-            return _skybox.SampleLevel(sampler_skybox, r.direction, 0);
-        }
-        // else if(!hit.didHit){
-        //     pixelLight += rayColor * float(i)/1.0;
-        //     break;
-
-        //     //                 pixelLight += color * _skybox.SampleLevel(sampler_skybox, r.direction, 0);
-        // }
+        float3 emittedColor = hit.emissionColor.xyz * hit.emissionStrength;
+        return hit.emissionColor.xyz * hit.emissionStrength;
+    }
+    else{
+        return _skybox.SampleLevel(sampler_skybox, r.direction, 0);
     }
 
     return pixelLight;

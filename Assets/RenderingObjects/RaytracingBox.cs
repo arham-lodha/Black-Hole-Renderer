@@ -28,7 +28,7 @@ public class RaytracingBox : MonoBehaviour
 
             }
 
-            renderer.sharedMaterial.color = material.color;
+            renderer.sharedMaterial.color = material.emissionColor;
         }
     }
 }

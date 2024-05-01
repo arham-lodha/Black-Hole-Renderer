@@ -6,6 +6,8 @@ public struct Sphere
     public float radius;
 
     // 4
-    public RaytracingMaterial material;
+    // public RaytracingMaterial material;
 
+    public Color emissionColor;
+    public float emissionStrength;
 }
