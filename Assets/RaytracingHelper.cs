@@ -21,7 +21,7 @@ public class RaytracingHelper : MonoBehaviour
     [Header("Raytracer Settings")]
     public int numSamples = 10;
     public float maxTimeIncrement = 0.5f;
-    public int maxDepth = 10000;
+    public int maxDepth = 100;
     private int stepCount = 0;
 
     private bool hardStop = false;
@@ -70,13 +70,33 @@ public class RaytracingHelper : MonoBehaviour
         setupTexture(ref _throughput, RenderTextureFormat.ARGBFloat, numSamples * width, height * numSamples);
         setupTexture(ref _result, RenderTextureFormat.ARGBFloat, numSamples * width, height * numSamples);
         setupTexture(ref _isComplete, RenderTextureFormat.RFloat, numSamples * width, height * numSamples);
-        setupTexture(ref _dt, RenderTextureFormat.RFloat, numSamples * width, height * numSamples);
+        // setupTexture(ref _dt, RenderTextureFormat.RFloat, numSamples * width, height * numSamples);
     }
 
+    Vector3 toCartesianCoordinates(Vector3 spherical)
+    {
+        float r = spherical.x;
+        float theta = spherical.y;
+        float phi = spherical.z;
 
+        return new Vector3(
+            r * Mathf.Sin(theta) * Mathf.Cos(phi),
+            r * Mathf.Cos(phi),
+            r * Mathf.Sin(theta) * Mathf.Sin(phi)
+        );
+    }
 
     private void setShaderParams()
     {
+
+        // Pre-convert camera position to spherical
+        Vector3 cart = _camera.transform.position;
+        float r = cart.magnitude;
+        float theta = Mathf.Atan2(new Vector2(cart.x, cart.z).magnitude, cart.y);
+        float phi = Mathf.Atan2(cart.z, cart.x);
+
+
+
         // Camera Compute Shader
         cameraRayShader.SetMatrix("inverseProjectionMatrix", _camera.projectionMatrix.inverse);
         cameraRayShader.SetMatrix("cameraToWorldMatrix", _camera.cameraToWorldMatrix);
@@ -85,6 +105,7 @@ public class RaytracingHelper : MonoBehaviour
         cameraRayShader.SetInt("height", height * numSamples);
         cameraRayShader.SetFloat("mass", mass);
         cameraRayShader.SetFloat("maxTimeIncrement", maxTimeIncrement);
+        cameraRayShader.SetVector("_camSpherical", new Vector3(r, theta, phi));
 
         //traceRayShader
         traceRayShader.SetTexture(0, "_skybox", cubemap);
@@ -294,7 +315,7 @@ public class RaytracingHelper : MonoBehaviour
         cameraRayShader.SetTexture(0, "Throughput", _throughput);
         cameraRayShader.SetTexture(0, "Result", _result);
         cameraRayShader.SetTexture(0, "IsComplete", _isComplete);
-        cameraRayShader.SetTexture(0, "DT", _dt);
+        // cameraRayShader.SetTexture(0, "DT", _dt);
 
         int numThreadsX = Mathf.CeilToInt(numSamples * width / numThreads);
         int numThreadsY = Mathf.CeilToInt(numSamples * height / numThreads);
@@ -309,7 +330,7 @@ public class RaytracingHelper : MonoBehaviour
         traceRayShader.SetTexture(0, "Throughput", _throughput);
         traceRayShader.SetTexture(0, "Result", _result);
         traceRayShader.SetTexture(0, "IsComplete", _isComplete);
-        traceRayShader.SetTexture(0, "DT", _dt);
+        // traceRayShader.SetTexture(0, "DT", _dt);
 
         int numThreadsX = Mathf.CeilToInt(numSamples * width / numThreads);
         int numThreadsY = Mathf.CeilToInt(numSamples * height / numThreads);
@@ -328,7 +349,7 @@ public class RaytracingHelper : MonoBehaviour
             {
                 if (completedTex.GetPixel(i, j).r == 0)
                 {
-                    Debug.Log("Incomplete on pixel: (" + i.ToString() + ", " + j.ToString() + ")");
+                    // Debug.Log("Incomplete on pixel: (" + i.ToString() + ", " + j.ToString() + ")");
                     Destroy(completedTex);
                     lastCheck = new Vector2Int(i, j);
                     return;

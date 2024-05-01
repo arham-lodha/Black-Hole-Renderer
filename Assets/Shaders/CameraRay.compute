@@ -11,13 +11,14 @@ RWTexture2D<float4> Direction;
 RWTexture2D<float4> Throughput;
 RWTexture2D<float4> Result;
 RWTexture2D<float> IsComplete;
-RWTexture2D<float> DT;
+// RWTexture2D<float> DT;
 
 TextureCube _skybox;
 SamplerState sampler_skybox;
 
 float4x4 inverseProjectionMatrix;
 float4x4 cameraToWorldMatrix;
+float3 _camSpherical;
 int numSamples;
 int width;
 int height;
@@ -26,10 +27,23 @@ float maxTimeIncrement;
 
 float4 toSphericalCoords(float4 cart){
     float r = length(cart.xyz);
-    float theta = atan2(r, cart.y);
+    float rxz = length(cart.xz);
+    float theta = atan2(rxz, cart.y);
     float phi = atan2(cart.z, cart.x);
 
     return float4(r, theta, phi, cart.w);
+}
+
+float3 toCartesianCoordinates(float3 spherical){
+    float r = spherical.x;
+    float theta = spherical.y;
+    float phi = spherical.z;
+
+    return float3(
+        r * sin(theta) * cos(phi),
+        r * cos(theta),
+        r * sin(theta) * sin(phi)
+    );
 }
 
 float3 toSphericalVector(float4 origin, float3 vec){
@@ -44,8 +58,8 @@ float3 toSphericalVector(float4 origin, float3 vec){
         y / r,
         z / r,
         (x * y) / (r * r * rxz),
-        -1.0 * rxz / (r * r), 
-        z * y / (r * rxz),
+        -rxz / (r * r), 
+        z * y / (r * r * rxz),
         -z / rxz,
         0.0,
         x / rxz
@@ -123,22 +137,21 @@ void CameraRayCS (uint3 id : SV_DispatchThreadID)
     uint2 index = uint2(id.x * numSamples, id.y * numSamples);
     Ray r = cameraRay(uv, float2(1.0/float(width), 1.0/float(height)), state);
 
-    // float4 origin = toSphericalCoords(float4(r.position.x, r.position.y, r.position.z, 0.0));
     float4 cameraPos = mul(cameraToWorldMatrix, float4(0.0, 0.0, 0.0, 1.0));
-    // float3 direction = toSphericalVector(cameraPos, float3(r.direction.x, r.direction.y, r.direction.z));
+    float3 direction = toSphericalVector(cameraPos, float3(r.direction.x, r.direction.y, r.direction.z));
 
-    float3 direction = float3(r.direction.x, r.direction.y, r.direction.z);
+    // float3 direction = float3(r.direction.x, r.direction.y, r.direction.z);
 
     float rs = 2 * mass;
 
-    // direction.x *= (1.0 - (mass / origin.x));
-    // direction.y *= origin.x * origin.x;
-    // direction.z *= origin.x * sin(origin.y);
+    direction.x *= (1.0 - (mass / _camSpherical.x));
+    direction.y *= _camSpherical.x * _camSpherical.x;
+    direction.z *= _camSpherical.x * sin(_camSpherical.y);
 
-    Position[index] = float4(cameraPos.x, cameraPos.y, cameraPos.z, 0.0);
+    Position[index] = float4(_camSpherical.xyz, 0);
     Direction[index] = float4(direction.x, direction.y, direction.z, 0.0);
     Throughput[index] = float4(1.0, 1.0, 1.0, 1.0);
     Result[index] = float4(0.0, 0.0, 0.0, 1.0);
-    IsComplete[index] = 0.0;
-    DT[index] = maxTimeIncrement;
+    IsComplete[index] =  0.0;
+    // DT[index] = maxTimeIncrement;
 }

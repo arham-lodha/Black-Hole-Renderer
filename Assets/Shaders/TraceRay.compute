@@ -1,85 +1,95 @@
-// Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel TraceRayCS
+// // Each #kernel tells which function to compile; you can have many kernels
+// #pragma kernel TraceRayCS
 
-#include "sdfs.cginc"
-#include "blackhole.cginc"
+// #include "sdfs.cginc"
+// #include "blackhole.cginc"
 
-static const float DIST_EPSILON = 0.01f;
-static const float EPSILON = 1.0f;
-static const uint MAX_ITERATIONS = 100;
-static const float MAX_DIST = 200.0f;
+// static const float DIST_EPSILON = 0.01f;
+// static const float EPSILON = 1.0f;
+// static const uint MAX_ITERATIONS = 100;
+// static const float MAX_DIST = 200.0f;
+// static const float PI = 3.14159265f;
 
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float> IsComplete;
-RWTexture2D<float4> Position;
-RWTexture2D<float4> Direction;
-RWTexture2D<float> DT;
-RWTexture2D<float4> Result;
-RWTexture2D<float4> Throughput;
 
-TextureCube _skybox;
-SamplerState sampler_skybox;
+// // Create a RenderTexture with enableRandomWrite flag and set it
+// // with cs.SetTexture
+// RWTexture2D<float> IsComplete;
+// RWTexture2D<float4> Position;
+// RWTexture2D<float4> Direction;
+// // RWTexture2D<float> DT;
+// RWTexture2D<float4> Result;
+// RWTexture2D<float4> Throughput;
 
-StructuredBuffer<Sphere> spheres;
-StructuredBuffer<Box> boxes;
+// TextureCube _skybox;
+// SamplerState sampler_skybox;
 
-int mass;
-int numSpheres;
-int numBoxes;
-int width;
-bool hardStop;
+// StructuredBuffer<Sphere> spheres;
+// StructuredBuffer<Box> boxes;
 
-float3 toCartesianCoordinates(float3 spherical){
-    float r = spherical.x;
-    float theta = spherical.y;
-    float phi = spherical.z;
+// int mass;
+// int numSpheres;
+// int numBoxes;
+// int width;
+// bool hardStop;
 
-    return float3(
-        r * sin(theta) * cos(phi),
-        r * cos(phi),
-        r * sin(theta) * sin(theta)
-    );
-}
+// float NextRandom(inout uint state)
+// {
+//     state = state * 747796405 + 2891336453;
+//     uint result = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
+//     result = (result >> 22) ^ result;
+//     return result;
+// }
 
-float NextRandom(inout uint state)
-{
-    state = state * 747796405 + 2891336453;
-    uint result = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
-    result = (result >> 22) ^ result;
-    return result;
-}
+// float RandomValue(inout uint state){
+//     return NextRandom(state) / 4294967295.0 * 2.0 - 1.0; // 2^32 - 1;
+// }
 
-float RandomValue(inout uint state){
-    return NextRandom(state) / 4294967295.0 * 2.0 - 1.0; // 2^32 - 1;
-}
-
-float3 getRandomHemisphereVector(inout uint state, float3 normal) {
-    uint count = 0;
+// float3 getRandomHemisphereVector(inout uint state, float3 normal) {
+//     uint count = 0;
     
-    while(true){
-        float3 vec = float3(
-            RandomValue(state),
-            RandomValue(state),
-            RandomValue(state)
-        );
+//     while(true){
+//         float3 vec = float3(
+//             RandomValue(state),
+//             RandomValue(state),
+//             RandomValue(state)
+//         );
         
-        if(length(vec) <= 1){
-            float d = dot(normal, vec);
+//         if(length(vec) <= 1){
+//             float d = dot(normal, vec);
             
-            if(d >= 0){
-                return normalize(vec);
-            } else {
-                return normalize(-vec);
-            }
-        }
+//             if(d >= 0){
+//                 return normalize(vec);
+//             } else {
+//                 return normalize(-vec);
+//             }
+//         }
 
-        count++;
-    }
+//         count++;
+//     }
 
-    return normal;
-}
+//     return normal;
+// }
+
+// float CalculateStepSize(float3 x, float3 p){
+//     float rs = 2.0 * mass;
+
+//     if(x.y < PI * 0.01f || x.y > PI * (1.0 - 0.01f)){
+//         return 0.0001f;
+//     }
+
+//     if(abs(x.x) < 2.0 * rs){
+//         return 0.001f;
+//     }
+
+//     // Receding
+//     if(p.x * x.x > 0.0){
+//         return max(0.001f * x.x * x.x, 0.001f);
+//     }
+//     else{
+//         return max(0.001f * (abs(x.x) - 2.0 * rs), 0.001f);
+//     }
+// }
 
 // Isect createIsect(int hit, int hitBlackhole, float time, float3 intersectionPoint, float3 intersectionDirection, float3 normal, Material material){
 //     Isect isect;
@@ -213,69 +223,83 @@ void TraceRayCS (uint3 id : SV_DispatchThreadID)
     uint state = id.x + id.y * width;
     float isComplete = IsComplete[id.xy];
 
-    if(isComplete <= 0.0){
+    if(isComplete < 1.0){
         // Result[id.xy] = float4(1.0, 0.0, 0.0, 0.0);
         float4 position = Position[id.xy];
         float3 direction = Direction[id.xy].xyz;
         float3 pixelLight = Result[id.xy].xyz;
         float3 rayColor = Throughput[id.xy].xyz;
-        float dt = DT[id.xy];
+
+        float3 x = float3(position.xyz);
         
-        float t = position.w;
-
-        float3 x = float3(position.x, position.y, position.z);
         float3 oldDir = float3(direction.x, direction.y, direction.z);
-        rungeKuttaIntegration(mass, dt, 4, position, direction);
 
-        if(hardStop){
+        float dt = CalculateStepSize(x, oldDir);
+        
+        float t = position.w + dt;
+
+        rungeKuttaIntegration(mass, CalculateStepSize(x, oldDir), 1, x, direction);
+        
+        if(abs(x.x) < 2.0 * mass){
             pixelLight = float3(1.0, 0.0, 0.0);
-        } else {
-            bool shortenDT = false;
-
-            float3 cart = float3(position.x, position.y, position.z);
-
-            if(sphereSDF(cart, float3(0.0, 0.0, 0.0), 2.0 * mass) < EPSILON){
-                pixelLight = 1.0;
-                isComplete = 0.0;
-            }
-            else{
-                for(int j = 1; j < numSpheres + 1; j++){
-                    float3 normal = getSphereNormal(position, spheres[j].position, spheres[j].radius);
-                    float dist = sphereSDF(position, spheres[j].position, spheres[j].radius);
-                        
-                    if(abs(dist) < EPSILON){
-                        Material material = spheres[j].material;
-
-                        float3 emittedColor = material.emissionColor.xyz * material.emissionStrength;
-                    
-                        pixelLight += emittedColor.xyz * rayColor;
-
-                        if(material.emissionStrength > 0.5) {
-                            position += float4(normal.x, normal.y, normal.z, 0.0) * DIST_EPSILON;
-                            isComplete = 1.0;
-                        }
-                        else{
-                            rayColor *= false ? material.specularColor.xyz : material.color.xyz;
-                            float3 diffuseDirection = normalize(normal + getRandomHemisphereVector(state, normal)); // diffuse direction
-                            position += float4(normal.x, normal.y, normal.z, 0.0) * DIST_EPSILON;
-                            direction = diffuseDirection;
-                            isComplete = 0.0;
-                        }
-                    }
-                    else if(dist < 0.0){
-                        shortenDT = true;
-                    }
-                }
-
-                if(shortenDT){
-                    DT[id.xy] = dt * 0.5;
-                    position = float4(x.x, x.y, x.z, t);
-                    direction = oldDir;
-                }
-            }
+            isComplete = 1.0;
         }
+        else if(abs(x.x) > 50.0){
+            pixelLight = _skybox.SampleLevel(sampler_skybox, direction, 0);
+            isComplete = 1.0;
+        }
+        else if(hardStop){
+            pixelLight = _skybox.SampleLevel(sampler_skybox, direction, 0);
+            isComplete = 1.0;
+        }
+        else{
+            pixelLight = float3(0.0, t, 0.0);
+        }
+        // rungeKuttaIntegration(mass, dt, 3, x, direction);
 
-        Position[id.xy] = position;
+        //     bool shortenDT = false;
+        //     if(x.x < 2.0 * mass){
+        //         pixelLight = 1.0;
+        //         isComplete = 1.0;
+        //     }
+        //     // else{
+        //     //     for(int j = 1; j < numSpheres + 1; j++){
+        //     //         float3 normal = getSphereNormal(position, spheres[j].position, spheres[j].radius);
+        //     //         float dist = sphereSDF(position, spheres[j].position, spheres[j].radius);
+                        
+        //     //         if(abs(dist) < EPSILON){
+        //     //             Material material = spheres[j].material;
+
+        //     //             float3 emittedColor = material.emissionColor.xyz * material.emissionStrength;
+                    
+        //     //             pixelLight += emittedColor.xyz * rayColor;
+
+        //     //             if(material.emissionStrength > 0.5) {
+        //     //                 position += float4(normal.x, normal.y, normal.z, 0.0) * DIST_EPSILON;
+        //     //                 isComplete = 1.0;
+        //     //             }
+        //     //             else{
+        //     //                 rayColor *= false ? material.specularColor.xyz : material.color.xyz;
+        //     //                 float3 diffuseDirection = normalize(normal + getRandomHemisphereVector(state, normal)); // diffuse direction
+        //     //                 position += float4(normal.x, normal.y, normal.z, 0.0) * DIST_EPSILON;
+        //     //                 direction = diffuseDirection;
+        //     //                 isComplete = 0.0;
+        //     //             }
+        //     //         }
+        //     //         else if(dist < 0.0){
+        //     //             shortenDT = true;
+        //     //         }
+        //     //     }
+
+        //     //     if(shortenDT){
+        //     //         DT[id.xy] = dt * 0.5;
+        //     //         position = float4(x.x, x.y, x.z, t);
+        //     //         direction = oldDir;
+        //     //     }
+        //     // }
+        // }
+
+        Position[id.xy] = float4(x.xyz, t);
         Direction[id.xy] = float4(direction.x, direction.y, direction.z, 0.0);
         Result[id.xy] = float4(pixelLight.x, pixelLight.y, pixelLight.z, 0.0);
         Throughput[id.xy] = float4(rayColor.x, rayColor.y, rayColor.z, 1.0);
