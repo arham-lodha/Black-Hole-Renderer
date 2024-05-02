@@ -422,13 +422,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 963194225}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.28846702, y: -0.1902558, z: 0.058883857, w: 0.93654805}
-  m_LocalPosition: {x: 32.4, y: 53.2, z: -101.8}
+  m_LocalRotation: {x: 0.21869162, y: 0.031531557, z: -0.0052754125, w: 0.9752702}
+  m_LocalPosition: {x: 0, y: 38.8, z: -104.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 34.245, y: -22.955, z: 0.037}
+  m_LocalEulerAnglesHint: {x: 25.271, y: 3.753, z: 0.222}
 --- !u!114 &963194229
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -443,12 +443,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 891251af62eb24fc59d88aeb8e034e92, type: 3}
   cubemap: {fileID: 8900000, guid: ae836f18da57e4c6aa99cd9e99e3f2f1, type: 3}
+  blackbodyTexture: {fileID: 2800000, guid: ce41cb91e955d46b7bffd6ba693043ba, type: 3}
   mass: 3
   maxDepth: 5
   focusDistance: 10
   defocusStrength: 0
   hasBlackHole: 1
-  diskMax: 4
+  diskMax: 10
+  diskTemp: 15333
+  numOctaves: 6
+  startingFrequency: 33.7
+  heaviness: 2.03
+  amplitudeFalloff: 0.79
+  distanceFalloff: 1.74
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

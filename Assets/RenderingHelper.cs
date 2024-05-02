@@ -12,6 +12,7 @@ public class RenderingHelper : MonoBehaviour
     public ComputeShader computeShader;
 
     public Cubemap cubemap;
+    public Texture blackbodyTexture;
 
     RenderTexture renderTexture;
     ComputeBuffer sphereBuffer;
@@ -24,6 +25,15 @@ public class RenderingHelper : MonoBehaviour
     [SerializeField] private float defocusStrength = 0.0f;
     [SerializeField] public bool hasBlackHole = true;
     [SerializeField] private float diskMax = 3.0f;
+
+    [Range(1000, 29800)] public float diskTemp = 20000.0f;
+
+    [Header("Noise Parameters")]
+    public int numOctaves = 4;
+    public float startingFrequency = 1.0f;
+    public float heaviness = 2.0f;
+    public float amplitudeFalloff = 0.8f;
+    public float distanceFalloff = 1.0f;
 
     void Start()
     {
@@ -72,8 +82,16 @@ public class RenderingHelper : MonoBehaviour
         computeShader.SetFloat("defocusStrength", defocusStrength);
         computeShader.SetFloat("mass", mass);
         computeShader.SetFloat("diskMax", diskMax);
+        computeShader.SetFloat("diskTemp", diskTemp);
         computeShader.SetBool("hasBlackHole", hasBlackHole);
         computeShader.SetTexture(0, "_skybox", cubemap);
+        computeShader.SetTexture(0, "_blackbodyTexture", blackbodyTexture);
+
+        computeShader.SetInt("numOctaves", numOctaves);
+        computeShader.SetFloat("heaviness", heaviness);
+        computeShader.SetFloat("startingFrequency", startingFrequency);
+        computeShader.SetFloat("amplitudeFalloff", amplitudeFalloff);
+        computeShader.SetFloat("distanceFalloff", distanceFalloff);
 
         createSpheres();
         createBoxes();
