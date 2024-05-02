@@ -27,5 +27,5 @@ We referenced source code from https://github.com/HollowaySean/BlackHoleViz_v2, 
 
 To generate the texture used to color the accretion disk based on temperature, we generated the texture from https://blog.seanholloway.com/2022/03/13/ by porting their MATLAB script into Python, which is located at `Black-Hole-Renderer/Assets/Script/generateBlackbodyRadiation.ipynb`.
 
-The skybox images in `Black-Hole-Renderer/Assets/CubeMaps` are from https://svs.gsfc.nasa.gov/4851/.
+The skybox images in `Black-Hole-Renderer/Assets/CubeMaps` are from https://svs.gsfc.nasa.gov/4851/. Another color texture based on temperature located at `Black-Hole-Renderer/Assets/scale03_E-2.jpg` is from https://rantonels.github.io/starless/.
 
