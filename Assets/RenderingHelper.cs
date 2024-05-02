@@ -20,11 +20,11 @@ public class RenderingHelper : MonoBehaviour
     ComputeBuffer boxBuffer;
 
     [SerializeField] public float mass = 1.0f;
-    [SerializeField] private int maxDepth = 5;
-    [SerializeField] private float focusDistance = 10.0f;
-    [SerializeField] private float defocusStrength = 0.0f;
     [SerializeField] public bool hasBlackHole = true;
     [SerializeField] private float diskMax = 3.0f;
+    [SerializeField] private float diskMin = 1.5f;
+    [SerializeField] private bool showAccretionDisk = true;
+
 
     [Range(1000, 29800)] public float diskTemp = 20000.0f;
 
@@ -34,6 +34,12 @@ public class RenderingHelper : MonoBehaviour
     public float heaviness = 2.0f;
     public float amplitudeFalloff = 0.8f;
     public float distanceFalloff = 1.0f;
+
+    private void OnValidate()
+    {
+        RaytracingBlackHole sphereObjects = FindFirstObjectByType<RaytracingBlackHole>();
+        sphereObjects.transform.localScale = new Vector3(mass * 2.0f, mass * 2.0f, mass * 2.0f);
+    }
 
     void Start()
     {
@@ -77,13 +83,12 @@ public class RenderingHelper : MonoBehaviour
     {
         computeShader.SetMatrix("inverseProjectionMatrix", cam.projectionMatrix.inverse);
         computeShader.SetMatrix("cameraToWorldMatrix", cam.cameraToWorldMatrix);
-        computeShader.SetInt("maxDepth", maxDepth);
-        computeShader.SetFloat("focusDistance", focusDistance);
-        computeShader.SetFloat("defocusStrength", defocusStrength);
         computeShader.SetFloat("mass", mass);
         computeShader.SetFloat("diskMax", diskMax);
+        computeShader.SetFloat("diskMin", diskMin);
         computeShader.SetFloat("diskTemp", diskTemp);
         computeShader.SetBool("hasBlackHole", hasBlackHole);
+        computeShader.SetBool("showAccretionDisk", showAccretionDisk);
         computeShader.SetTexture(0, "_skybox", cubemap);
         computeShader.SetTexture(0, "_blackbodyTexture", blackbodyTexture);
 
@@ -120,8 +125,6 @@ public class RenderingHelper : MonoBehaviour
                 emissionStrength = sphereObjects[i - 1].material.emissionStrength,
             };
         }
-
-        Debug.Log(sphereObjects.Length);
 
 
         sphereBuffer = new ComputeBuffer(spheres.Length, sizeof(float) * 9);

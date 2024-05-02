@@ -1,5 +1,4 @@
-// PCG (permuted congruential generator). Thanks to:
-// www.pcg-random.org and www.shadertoy.com/view/XlGcRh
+// PCG (permuted congruential generator). Credits: https://www.youtube.com/watch?v=Qz0KTGYJtUk, www.pcg-random.org and www.shadertoy.com/view/XlGcRh
 float NextRandom(inout uint state)
 {
     state = state * 747796405 + 2891336453;
@@ -25,7 +24,8 @@ float2 RandomValueInCircle(inout uint state)
 }
 
 float random (in float3 pt, in float period, in float seed) {
-    pt.y = fmod(pt.y, period);
+    pt.y = pt.y - period * floor(pt.y / period);
+
     return frac(sin( (seed + dot(pt.xyz, float3(12.9898,78.233,23.5405))))*43758.5453123);
 }
 
@@ -83,7 +83,7 @@ float perlin(in float x, in float y, in float t, in float period, in float seed)
 }
 
 // THANK YOU OUR LORD AND SAVIOR INIGO QUILEZ
-// https://iquilezles.org/articles/distfunctions/
+// https://iquilezles.org/articles/fbm/
 float FBM(in float3 vec, in float H, in float seed, in float startingFrequency, in int numOctaves){
     float G = exp2(-H);
     float f = startingFrequency;
@@ -103,99 +103,3 @@ float FBM(in float3 vec, in float H, in float seed, in float startingFrequency, 
 
     return t / sumA;
 }
-
-// const float PI = 3.14159265;
-
-// float random (in vec3 pt, in float period, in float seed) {
-//     pt.y = mod(pt.y, period);
-//     return fract(sin((seed + dot(pt.xyz, vec3(12.9898,78.233,23.5405))))*43758.5453123);
-// }
-
-// vec3 unit_vec(in vec3 xyz, in float period, in float seed) {
-//     float theta = 6.28318530718*random(xyz, period, seed);
-//     float phi = 6.28318530718*random(xyz, period, seed * 23.9847);
-//     return vec3(cos(theta), sin(theta), cos(phi));
-// }
-
-// float smoothmix(float a0, float a1, float w) {
-//     return (a1 - a0) * (3.0 - w * 2.0) * w * w + a0;
-// }
-
-// float dotGradDiff(in float ix, in float iy, in float it, in float x, in float y, in float t, in float period, in float seed) {
-//     vec3 grad = unit_vec(vec3(ix, iy, it), period, seed);
-//     vec3 d = vec3(x - ix, y - iy, t - it);
-
-//     return dot(grad, d);
-// }
-
-// float perlin(in float x, in float y, in float t, in float period, in float seed) {
-//     float x0 = floor(x);
-//     float x1 = x0 + 1.0;
-//     float y0 = floor(y);
-//     float y1 = y0 + 1.0;
-//     float t0 = floor(t);
-//     float t1 = t0 + 1.0;
-//     float dx = x - x0;
-//     float dy = y - y0;
-//     float dt = t - t0;
-
-//     // x, y, t0 interpolation
-
-//     float a = dotGradDiff(x0, y0, t0, x, y, t, period, seed);
-//     float b = dotGradDiff(x1, y0, t0, x, y, t, period, seed);
-//     float c = dotGradDiff(x0, y1, t0, x, y, t, period, seed);
-//     float d = dotGradDiff(x1, y1, t0, x, y, t, period, seed);
-
-//     float ab = smoothmix(a, b, dx);
-//     float cd = smoothmix(c, d, dx);
-//     float abcd = smoothmix(ab, cd, dy);
-
-//     // x, y, t1 interpolation
-
-//     float p = dotGradDiff(x0, y0, t1, x, y, t, period, seed);
-//     float q = dotGradDiff(x1, y0, t1, x, y, t, period, seed);
-//     float r = dotGradDiff(x0, y1, t1, x, y, t, period, seed);
-//     float s = dotGradDiff(x1, y1, t1, x, y, t, period, seed);
-
-//     float pq = smoothmix(p, q, dx);
-//     float rs = smoothmix(r, s, dx);
-//     float pqrs = smoothmix(ab, cd, dy);
-
-//     return smoothmix(abcd, pqrs, dt) * 0.5 + 0.5;
-// }
-
-// float FBM(in vec3 vec, in float H, in float seed){
-//     float G = exp2(-H);
-//     float f = 15.0;
-//     float a = 1.0;
-//     float sumA = 0.0;
-//     float t = 0.0;
-//     float x = vec.x;
-//     float y = vec.y;
-//     float z = vec.z;
-
-//     for(int i = 0; i < 5; i++){
-//         t += a * perlin(f * x, f * y, f * z, f, seed);
-//         f = 2.0;
-//         sumA += a;
-//         a= G;
-//     }
-
-//     return t / sumA;
-// }
-
-// void mainImage( out vec4 fragColor, in vec2 fragCoord )
-// {
-//     // Normalized pixel coordinates (from 0 to 1)
-//     vec2 uv = fragCoord/iResolution.xy - vec2(0.5);
-
-//     float r = length(uv) / 0.705;
-//     float theta = atan(uv.y, uv.x);
-    
-//     float angle = theta / (2.0 * PI) - r * r / 2.0;
-
-//     float val = 2.0 * (FBM(vec3(r, angle, 1.0), 0.9, 1021.0) - 0.5) + 0.5;
-
-//     // Output to screen
-//     fragColor = vec4(vec3( val),1.0);
-// }

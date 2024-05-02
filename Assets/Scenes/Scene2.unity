@@ -210,7 +210,7 @@ Transform:
   m_GameObject: {fileID: 267781044}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: -20.68}
+  m_LocalPosition: {x: -0, y: 0, z: -50.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -225,16 +225,24 @@ MonoBehaviour:
   m_GameObject: {fileID: 267781044}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1c773696e21e4873b7c325d5556b207, type: 3}
+  m_Script: {fileID: 11500000, guid: 6fa75274858784befb3189b6c856885c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraRayShader: {fileID: 7200000, guid: 221271971aa2f42569330ffe5d6672e4, type: 3}
-  traceRayShader: {fileID: 7200000, guid: 478f89b17824a4154bfc44384c91284e, type: 3}
-  cubemap: {fileID: 8900000, guid: ae836f18da57e4c6aa99cd9e99e3f2f1, type: 3}
-  numSamples: 10
-  maxTimeIncrement: 0.005
-  maxDepth: 1000
+  computeShader: {fileID: 7200000, guid: 891251af62eb24fc59d88aeb8e034e92, type: 3}
+  cubemap: {fileID: 8900000, guid: f857c619cd7a34a309e7a2ea271c3ddd, type: 3}
+  blackbodyTexture: {fileID: 2800000, guid: ce41cb91e955d46b7bffd6ba693043ba, type: 3}
   mass: 1
+  hasBlackHole: 1
+  diskMax: 7.75
+  diskMin: 2.2
+  colorUsingTemperature: 1
+  flatColor: 1
+  diskTemp: 20000
+  numOctaves: 19
+  startingFrequency: 27
+  heaviness: 2
+  amplitudeFalloff: 0.8
+  distanceFalloff: 1.21
 --- !u!1 &880698287
 GameObject:
   m_ObjectHideFlags: 0
@@ -247,6 +255,7 @@ GameObject:
   - component: {fileID: 880698290}
   - component: {fileID: 880698289}
   - component: {fileID: 880698288}
+  - component: {fileID: 880698292}
   m_Layer: 0
   m_Name: Sphere
   m_TagString: Untagged
@@ -335,11 +344,24 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &880698292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 880698287}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5209b2718623f423dbabc4725d4c119e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mass: 1
 --- !u!1 &2062132618
 GameObject:
   m_ObjectHideFlags: 0

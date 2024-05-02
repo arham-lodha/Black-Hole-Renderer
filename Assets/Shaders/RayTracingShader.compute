@@ -6,7 +6,7 @@
 
 static const float DIST_EPSILON = 0.01f;
 static const uint MAX_ITERATIONS = 300;
-static const float MAX_DIST = 200.0f;
+static const float MAX_DIST = 2000.0f;
 static const float PI = 3.14159265f;
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -25,13 +25,11 @@ StructuredBuffer<Box> boxes;
 bool hasBlackHole;
 int numSpheres;
 int numBoxes;
-int maxDepth;
-float defocusStrength;
-float focusDistance;
 float4x4 inverseProjectionMatrix;
 float4x4 cameraToWorldMatrix;
 float mass;
 float diskMax;
+float diskMin;
 
 // Noise parameters
 int numOctaves;
@@ -39,6 +37,7 @@ float heaviness;
 float startingFrequency;
 float amplitudeFalloff;
 float diskTemp;
+bool showAccretionDisk;
 
 //
 float distanceFalloff;
@@ -62,7 +61,7 @@ bool checkAccretionIntersect(float3 oldPos, float3 newPos) {
     float avg = 0.5 * (length(newPos) + length(oldPos));
     float rs = 2.0 * mass;
 
-    return avg > rs * 3.0 && avg < rs * max(diskMax, 5.0);    
+    return avg > rs * max(diskMin, 1.5) && avg < rs * max(diskMax, 5.0);    
 }
 
 float4 getDiskColor(float3 position, float3 lastPosition){
@@ -70,21 +69,23 @@ float4 getDiskColor(float3 position, float3 lastPosition){
     float lastLength = length(lastPosition);
     float avg_r = 0.5 * (currLength + lastLength); 
     float rs = 2.0 * mass;
-    float normalized_r = (avg_r - rs * 3.0) / (max(diskMax, 5.0) * rs - rs * 1.5);
-    float modifiedTheta = fmod(atan2(position.z, position.x) + PI, 2.0 * PI);
+    float normalized_r = (avg_r - rs * max(diskMin, 1.5)) / (max(diskMax, 5.0) * rs - rs * max(diskMin, 1.5));
+    float modifiedTheta = fmod(atan2(position.z, position.x) + PI, 2* PI);
     float3 uv = float3(normalized_r, modifiedTheta / (2.0 * PI), 0.0);
+
+    float alpha = heaviness * (FBM(uv, amplitudeFalloff, 202.4, startingFrequency, numOctaves) - 0.5) + 0.5;
+
     float temp = diskTemp * pow(abs(3.0 * rs / avg_r), 0.75);
 
     float2 uvBlackBody = float2((temp - 1000.0) / (29800.0 - 1000.0), 0.0);
     float3 bbColor = _blackbodyTexture.SampleLevel(sampler_blackbodyTexture, uvBlackBody, 0);
 
-    float alpha = heaviness * (FBM(uv, amplitudeFalloff, 202.4, startingFrequency, numOctaves) - 0.5) + 0.5;
 
-    float brightness = max(1 / exp(29622.0 / temp - 1), 1.5);
+    float brightness = 1 / exp(10000.0 / temp - 1) * 3.0;
 
 
     bbColor = brightness * bbColor;
-    
+
 
     return float4(bbColor, exp(-normalized_r * max(diskMax, 5.0) / 3.0 * distanceFalloff) * clamp(alpha, 0.0, 1.0));
 }
@@ -111,9 +112,8 @@ Isect blackHoleIntersect(inout Ray ray){
             return createIsect(true, true, false, color +float4(0.0, 0.0, 0.0, 1.0), 0.0);
         }
 
-        if(checkAccretionIntersect(x, ray.position)){
+        if(showAccretionDisk && checkAccretionIntersect(x, ray.position)){
             color = lerp(color, getDiskColor(ray.position, x), 1 - color.w);
-            color += getDiskColor(ray.position, x);
         }
 
         for(int j = 1; j < numSpheres + 1; j++){
@@ -156,12 +156,21 @@ Isect blackHoleIntersect(inout Ray ray){
 Isect intersect(Ray ray) {
     float time = 0.0;
     float steps = 0.0;
+
+    float rs = 2.0 * mass;
+    float3 bPos = float3(0.0, 0.0, 0.0);
+    float4 color = float4(0.0, 0.0, 0.0, 0.0);
+
+
+
     while(time < MAX_DIST){
         float dist = MAX_DIST;
+
         for(int j = 1; j < numSpheres + 1; j++) {
             float sphere_dist = sphereSDF(ray.position, spheres[j].position, spheres[j].radius);
 
             if(sphere_dist <= DIST_EPSILON){
+                color = lerp(color, spheres[j].emissionColor, 1 - color.w);
                 return createIsect(true, false, false, spheres[j].emissionColor, spheres[j].emissionStrength);
             }
 
@@ -172,6 +181,7 @@ Isect intersect(Ray ray) {
             float box_dist = boxSDF(ray.position, boxes[j].position, boxes[j].corner, boxes[j].rotation);
 
             if(box_dist <= DIST_EPSILON){
+                color = lerp(color, boxes[j].emissionColor, 1 - color.w);
                 return createIsect(true, false, false, boxes[j].emissionColor, boxes[j].emissionStrength);
             }
 
@@ -194,9 +204,8 @@ Ray createRay(float3 origin, float3 direction) {
     return ray;
 }
 
-Ray cameraRay(float2 uv, float defocus, float2 jitter, inout uint state) {
+Ray cameraRay(float2 uv, float2 jitter, inout uint state) {
     float2 jitterOrigin = float2(RandomValue(state), RandomValue(state)) * jitter;
-    float2 jitterDir = RandomValueInCircle(state) * defocus;
     float3 origin = mul(cameraToWorldMatrix, float4(jitterOrigin.x, jitterOrigin.y, 0.0, 1.0)).xyz;
     float4 dir = mul(inverseProjectionMatrix, float4(uv, 0.0, 1.0));
     dir /= dir.w;
@@ -241,7 +250,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     uint seed = id.x + id.y * width;
 
     for(int i = 0; i < n; i++) {
-        col += traceRay(cameraRay(uv, defocusStrength, float2(1.0/float(width), 1.0/float(height)), seed), seed);
+        col += traceRay(cameraRay(uv, float2(1.0/float(width), 1.0/float(height)), seed), seed);
     }
     
     col /= n;
