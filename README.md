@@ -5,7 +5,7 @@ By Arham Lodha and Prajith Velicheti
 Extra Credit: Both of us completed the Course Evaluation Survey.
 
 Our project was made using Unity. Our submission consists of:
-- Source code in `Black-Hole-Renderer.zip`
+- Source code in `Black-Hole-Renderer`
 - A video to demo our project in `Demo.mp4`
 - Our report in `Report.pdf`
 
@@ -26,4 +26,6 @@ For the permuted congruential generator used to generate a random number in the 
 We referenced source code from https://github.com/HollowaySean/BlackHoleViz_v2, the repository of https://blog.seanholloway.com/2022/03/13/, to understand the algorithm behind coloring the accretion disk and accretion disk intersection.
 
 To generate the texture used to color the accretion disk based on temperature, we generated the texture from https://blog.seanholloway.com/2022/03/13/ by porting their MATLAB script into Python, which is located at `Black-Hole-Renderer/Assets/Script/generateBlackbodyRadiation.ipynb`.
+
+The skybox images in `Black-Hole-Renderer/Assets/CubeMaps` are from https://svs.gsfc.nasa.gov/4851/.
 
