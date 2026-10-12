@@ -84,7 +84,7 @@ float perlin(in float x, in float y, in float t, in float period, in float seed)
 
 // THANK YOU OUR LORD AND SAVIOR INIGO QUILEZ
 // https://iquilezles.org/articles/fbm/
-float FBM(in float3 vec, in float H, in float seed, in float startingFrequency, in int numOctaves){
+float FBM(in float3 vec, in float H, in float seed, in float startingFrequency, in int numOctaves, in float currLength){
     float G = exp2(-H);
     float f = startingFrequency;
     float a = 1.0;
@@ -95,10 +95,10 @@ float FBM(in float3 vec, in float H, in float seed, in float startingFrequency, 
     float z = vec.z;
 
     for(int i = 0; i < numOctaves; i++){
-        t += a * perlin(f * x, f * y, f * z, f, seed);
-        f = 2.0;
+        t += a * perlin(f * x + avg_r, f * y + avg_r, f * z + avg_r, f, seed);
+        f *= 2.0;
         sumA += a;
-        a= G;
+        a *= G;
     }
 
     return t / sumA;

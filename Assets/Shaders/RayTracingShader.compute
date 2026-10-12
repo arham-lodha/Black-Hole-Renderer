@@ -73,7 +73,7 @@ float4 getDiskColor(float3 position, float3 lastPosition){
     float modifiedTheta = fmod(atan2(position.z, position.x) + PI, 2* PI);
     float3 uv = float3(normalized_r, modifiedTheta / (2.0 * PI), 0.0);
 
-    float alpha = heaviness * (FBM(uv, amplitudeFalloff, 202.4, startingFrequency, numOctaves) - 0.5) + 0.5;
+    float alpha = heaviness * (FBM(uv, amplitudeFalloff, 202.4, startingFrequency, numOctaves, avg_r) - 0.5) + 0.5;
 
     float temp = diskTemp * pow(abs(3.0 * rs / avg_r), 0.75);
 

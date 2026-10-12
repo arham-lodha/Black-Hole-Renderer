@@ -278,7 +278,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5209b2718623f423dbabc4725d4c119e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 1
 --- !u!135 &1182573501
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -564,9 +563,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6fa75274858784befb3189b6c856885c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  computeShader: {fileID: 0}
-  cubemap: {fileID: 0}
-  blackbodyTexture: {fileID: 0}
+  computeShader: {fileID: 7200000, guid: 891251af62eb24fc59d88aeb8e034e92, type: 3}
+  cubemap: {fileID: 8900000, guid: f857c619cd7a34a309e7a2ea271c3ddd, type: 3}
+  blackbodyTexture: {fileID: 2800000, guid: 192b6359f818c4deb87d784d11421f62, type: 3}
   mass: 1
   hasBlackHole: 1
   diskMax: 3
